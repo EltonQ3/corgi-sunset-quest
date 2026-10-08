@@ -1,0 +1,38 @@
+name: 試玩問題
+description: 回報 Bug、卡關或操作手感
+title: '[試玩] '
+body:
+  - type: input
+    id: device
+    attributes:
+      label: 設備與瀏覽器
+      placeholder: iPhone / Safari、Windows / Chrome、Steam Deck 等
+    validations:
+      required: true
+  - type: dropdown
+    id: controls
+    attributes:
+      label: 操作方式
+      options:
+        - 觸控
+        - 鍵盤
+        - 手柄
+  - type: input
+    id: location
+    attributes:
+      label: 發生區域／變身形態
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 重現步驟、實際結果與預期結果
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 截圖／錄影
+      description: 可直接拖入圖片或錄影。
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: 修改建議

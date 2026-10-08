@@ -1,0 +1,26 @@
+/* Layered retro effects and independently adjustable music/SFX buses. */
+(()=>{'use strict';
+class CorgiAudio {
+ constructor(){this.ctx=null;this.music=null;this.active=0;this.last={};this.duckUntil=0;this.buffers={};this.scene='street';this.voice=null;this.loading=null;this.settings={music:.52,sfx:.65,muted:false};try{Object.assign(this.settings,JSON.parse(localStorage.getItem('corgi-audio-v2')||'{}'))}catch{};for(const k of ['music','sfx'])this.settings[k]=Math.max(0,Math.min(1,Number(this.settings[k])||0));}
+ start(){try{if(!this.ctx){const A=window.AudioContext||window.webkitAudioContext;this.ctx=new A();let c=this.ctx;this.master=c.createGain();this.master.gain.value=.8;const limiter=c.createDynamicsCompressor();limiter.threshold.value=-12;limiter.knee.value=12;limiter.ratio.value=5;limiter.attack.value=.004;limiter.release.value=.14;this.master.connect(limiter).connect(c.destination);this.sfx=c.createGain();this.sfx.connect(this.master);this.musicBus=c.createGain();this.musicBus.connect(this.master);this.noise=c.createBuffer(1,c.sampleRate*.5,c.sampleRate);let a=this.noise.getChannelData(0);for(let i=0;i<a.length;i++)a[i]=Math.random()*2-1;this.update('play');}this.ctx.resume().catch(()=>{});if(!this.loading)this.loading=this.loadTracks();if(!this.voice)this.setScene(this.scene);}catch{}}
+ async loadTracks(){await Promise.all(['street','boss','reunion'].map(async name=>{try{const res=await fetch('assets/'+name+'-v3.mp3');if(!res.ok)throw new Error('music unavailable');this.buffers[name]=await this.ctx.decodeAudioData(await res.arrayBuffer());if(this.scene===name)this.setScene(name);}catch(e){console.warn('Music load failed:',name);}}));}
+ setScene(name,restart=false){this.scene=name;if(!this.ctx||!this.buffers[name])return;if(this.voice?.name===name&&!restart)return;const c=this.ctx,now=c.currentTime,old=this.voice,source=c.createBufferSource(),gain=c.createGain();source.buffer=this.buffers[name];source.loop=name!=='reunion';source.connect(gain).connect(this.musicBus);gain.gain.setValueAtTime(0,now);gain.gain.linearRampToValueAtTime(1,now+1.1);source.start();this.voice={name,source,gain};if(old){old.gain.gain.cancelScheduledValues(now);old.gain.gain.setValueAtTime(old.gain.gain.value,now);old.gain.gain.linearRampToValueAtTime(0,now+.85);try{old.source.stop(now+.9)}catch{}}source.onended=()=>{source.disconnect();gain.disconnect()};}
+ set(k,v){this.settings[k]=k==='muted'?!!v:Math.max(0,Math.min(1,Number(v)));try{localStorage.setItem('corgi-audio-v2',JSON.stringify(this.settings))}catch{};this.update('play');}
+ update(mode){if(!this.ctx)return;let c=this.ctx,s=this.settings,duck=c.currentTime<this.duckUntil?.66:1,pause=mode==='pause'||mode==='dead'?.25:1;this.master.gain.setTargetAtTime(s.muted?0:.8,c.currentTime,.025);this.sfx.gain.setTargetAtTime(s.sfx*.68,c.currentTime,.025);this.musicBus.gain.setTargetAtTime(s.music*.58*duck*pause,c.currentTime,.08);}
+ tone(freq,end,duration,volume,type='triangle',delay=0){let c=this.ctx,o=c.createOscillator(),g=c.createGain(),t=c.currentTime+delay;o.type=type;o.frequency.setValueAtTime(freq,t);o.frequency.exponentialRampToValueAtTime(Math.max(25,end),t+duration);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(volume,t+.006);g.gain.exponentialRampToValueAtTime(.0001,t+duration);o.connect(g).connect(this.sfx);o.start(t);o.stop(t+duration+.015);this.active++;o.onended=()=>{this.active--;o.disconnect();g.disconnect()};}
+ air(freq,duration,volume,delay=0){let c=this.ctx,o=c.createBufferSource(),f=c.createBiquadFilter(),g=c.createGain(),t=c.currentTime+delay;o.buffer=this.noise;f.type='bandpass';f.frequency.setValueAtTime(freq,t);f.frequency.exponentialRampToValueAtTime(freq*.4,t+duration);f.Q.value=.8;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(volume,t+.005);g.gain.exponentialRampToValueAtTime(.0001,t+duration);o.connect(f).connect(g).connect(this.sfx);o.start(t);o.stop(t+duration+.015);this.active++;o.onended=()=>{this.active--;o.disconnect();f.disconnect();g.disconnect()};}
+ play(type='hit',strength=.08){if(!this.ctx||this.settings.muted||this.ctx.state!=='running')return;let t=this.ctx.currentTime,min={hit:.075,coin:.09,impact:.07,hurt:.3,skill:.18}[type]||.06;if(t-(this.last[type]??-99)<min||this.active>24)return;this.last[type]=t;let v=Math.max(.3,Math.min(1,strength/.08));if(['impact','hurt','skill'].includes(type))this.duckUntil=t+(type==='hurt'?.32:.18);
+ switch(type){
+ case 'hit':this.air(1800,.09,.19*v);this.tone(200,95,.065,.10*v);break;
+ case 'impact':this.tone(160,48,.13,.24*v);this.air(850,.095,.20*v);this.tone(670,260,.065,.06*v);break;
+ case 'jump':this.tone(300,670,.13,.16*v);this.tone(600,1050,.09,.035*v,'sine');break;
+ case 'dash':this.air(2600,.19,.22*v);this.tone(270,110,.15,.07*v);break;
+ case 'coin':this.tone(880,880,.13,.13*v,'sine');this.tone(1320,1320,.17,.09*v,'sine',.065);break;
+ case 'hurt':this.tone(175,48,.23,.21*v,'triangle');this.air(620,.17,.15*v);break;
+ case 'skill':this.tone(220,660,.24,.14*v);this.tone(330,990,.24,.10*v,'sine',.025);this.air(1900,.21,.12*v);break;
+ case 'win':[523.25,659.25,783.99,1046.5].forEach((f,i)=>this.tone(f,f,.45,.13,'triangle',i*.11));break;
+ default:this.tone(170,80,.08,.06*v);}
+ }
+}
+window.CorgiAudio=CorgiAudio;
+})();

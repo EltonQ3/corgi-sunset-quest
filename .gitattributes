@@ -1,0 +1,4 @@
+.asset-parts/*.part* -text
+*.png binary
+*.mp3 binary
+*.woff binary

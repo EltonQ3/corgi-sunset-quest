@@ -22,7 +22,7 @@ Cloudflare Pages 正式地址待首次部署後補上。
 
 ## Cloudflare Pages
 
-連接此 GitHub 倉庫，production branch 選 `main`，framework 選 `None`，不需要 build command，build output directory 填 `dist`。無需環境變數或後端。
+連接此 GitHub 倉庫，production branch 選 `main`，framework 選 `None`，build command 填 `node scripts/build-assets.mjs`，build output directory 填 `dist`。無需環境變數或後端。
 
 遊戲部署內容位於 `dist/`。不要將 `.openai` 或其他平台憑證加入本倉庫。
 

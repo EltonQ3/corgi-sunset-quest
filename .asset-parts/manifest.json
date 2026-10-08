@@ -1,0 +1,44 @@
+[
+  {
+    "target": "dist/assets/street-v3.mp3",
+    "sha256": "1a22bba308c97c4d7da4311ca866ab2f8ab88db5c328b430bf9906f9abd545b3",
+    "parts": [
+      ".asset-parts/street-v3.mp3.part000",
+      ".asset-parts/street-v3.mp3.part001",
+      ".asset-parts/street-v3.mp3.part002",
+      ".asset-parts/street-v3.mp3.part003",
+      ".asset-parts/street-v3.mp3.part004",
+      ".asset-parts/street-v3.mp3.part005",
+      ".asset-parts/street-v3.mp3.part006",
+      ".asset-parts/street-v3.mp3.part007",
+      ".asset-parts/street-v3.mp3.part008"
+    ]
+  },
+  {
+    "target": "dist/assets/boss-v3.mp3",
+    "sha256": "49bc5104d91f399d98fa7c64b5ca941df8af6f6bf911c278f0a4e6965093960c",
+    "parts": [
+      ".asset-parts/boss-v3.mp3.part000",
+      ".asset-parts/boss-v3.mp3.part001",
+      ".asset-parts/boss-v3.mp3.part002",
+      ".asset-parts/boss-v3.mp3.part003",
+      ".asset-parts/boss-v3.mp3.part004",
+      ".asset-parts/boss-v3.mp3.part005",
+      ".asset-parts/boss-v3.mp3.part006",
+      ".asset-parts/boss-v3.mp3.part007",
+      ".asset-parts/boss-v3.mp3.part008"
+    ]
+  },
+  {
+    "target": "dist/assets/bakery.png",
+    "sha256": "04182f49b8b0df0a67f86fe561cc4594a2b69d150fe6f3f6ed73f96faa98dca1",
+    "parts": [
+      ".asset-parts/bakery.png.part000",
+      ".asset-parts/bakery.png.part001",
+      ".asset-parts/bakery.png.part002",
+      ".asset-parts/bakery.png.part003",
+      ".asset-parts/bakery.png.part004",
+      ".asset-parts/bakery.png.part005"
+    ]
+  }
+]
