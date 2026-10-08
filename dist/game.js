@@ -302,20 +302,15 @@ const keymap={ArrowLeft:'left',KeyA:'left',ArrowRight:'right',KeyD:'right',Space
 const stage=$('stage');let displayedMode='';
 function syncStageMode(){
  if(displayedMode===mode)return;displayedMode=mode;
- const active=mode==='play'||mode==='ending';
  stage.classList.toggle('is-playing',mode==='play');stage.classList.toggle('is-ending',!!ending);
- document.documentElement?.classList.toggle('game-active',active);
 }
-// Pointer events still own gameplay. These listeners suppress Safari's native
-// zoom/loupe/callout gestures only inside the active game surface.
+// Only thumb buttons consume touch gestures. Canvas and gutters retain vertical
+// page scrolling, so a browser layout change can never trap the game offscreen.
 function protectGameTouch(e){
  if(mode!=='play'&&mode!=='ending')return;
- const control=e.target.closest?.('button:not([data-key]), input, a, label');
- if(control)return;
- if(e.cancelable)e.preventDefault();
+ if(e.target.closest?.('[data-key]')&&e.cancelable)e.preventDefault();
 }
-for(const type of ['touchstart','touchmove','touchend'])stage.addEventListener(type,protectGameTouch,{passive:false});
-for(const type of ['gesturestart','gesturechange','gestureend'])stage.addEventListener(type,e=>{if((mode==='play'||mode==='ending')&&e.cancelable)e.preventDefault()},{passive:false});
+for(const type of ['touchstart','touchmove','touchend','gesturestart','gesturechange','gestureend'])stage.addEventListener(type,protectGameTouch,{passive:false});
 for(const type of ['contextmenu','selectstart','dragstart'])stage.addEventListener(type,e=>{if(e.cancelable)e.preventDefault()});
 stage.addEventListener('pointerdown',e=>{if(e.pointerType!=='mouse'&&(mode==='play'||mode==='ending')){const selection=window.getSelection?.();if(selection?.anchorNode&&stage.contains(selection.anchorNode))selection.removeAllRanges()}},{passive:true});
 window.addEventListener('orientationchange',()=>clearInput());
