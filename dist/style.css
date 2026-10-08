@@ -9,3 +9,19 @@
 @media(max-width:420px){.touch-act{width:177px}.touch-move button{width:58px!important;height:62px!important}.touch-move{gap:9px}.touch-tools{gap:10px}}
 
 @media(max-width:360px) and (orientation:portrait){#touch{padding-left:8px;padding-right:8px}.touch-move button{width:50px!important}.touch-tools{gap:7px}.touch-act{width:155px}.touch-act [data-key=attack]{right:66px;width:62px!important;height:62px!important}.touch-act [data-key=dash]{right:88px}.touch-act [data-key=jump]{width:60px!important;height:60px!important}#touch #touchPause{top:3px;left:49%}}
+
+/* A self-contained game surface: Safari gestures must not compete with play. */
+.stage,.stage *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+.stage{touch-action:manipulation;overscroll-behavior:contain}
+.stage.is-playing,.stage.is-ending{touch-action:none}
+.stage button,.stage canvas{-webkit-user-drag:none}
+#touch{left:max(24px,calc(env(safe-area-inset-left) + 12px));right:max(24px,calc(env(safe-area-inset-right) + 12px));bottom:max(18px,calc(env(safe-area-inset-bottom) + 8px))}
+.stage.is-ending #touch{visibility:hidden;pointer-events:none}.stage.is-ending #touch button{pointer-events:none}
+.reunion-film{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;image-rendering:pixelated;pointer-events:none;z-index:1;background:#241d2e}
+.reunion-film[hidden],.ending-actions[hidden]{display:none}
+.ending-actions{position:absolute;bottom:22px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;z-index:2;white-space:nowrap}
+.ending-actions button{background:#302438ed;border:1px solid #b28864;border-radius:2px;font-size:12px;padding:9px 15px;box-shadow:0 3px 0 #1b1422}
+.ending-actions .primary{background:#e8b477;color:#302432;border-color:#f8d6a5}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media(pointer:coarse) and (orientation:landscape){header,.eyebrow,.heading,.under,.field-guide,footer{display:none}main{padding:0;max-width:100vw}.stage{width:100%;aspect-ratio:auto;border:0;border-radius:0}.stage canvas{object-fit:contain}html.game-active,html.game-active body{height:100%;overflow:hidden;overscroll-behavior:none}.stage{height:100svh}.stage:fullscreen{height:100dvh}.ending-actions{bottom:max(10px,env(safe-area-inset-bottom))}.ending-actions button{padding:8px 12px}}
+@media(pointer:coarse) and (orientation:portrait){.reunion-film{height:auto;aspect-ratio:16/9;bottom:auto}#touch{left:auto;right:auto;bottom:auto}.ending-actions{bottom:58px;gap:7px}.ending-actions button{padding:9px 10px;font-size:11px}}

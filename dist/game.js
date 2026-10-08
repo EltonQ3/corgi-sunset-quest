@@ -4,7 +4,7 @@ const W=960,H=540,G=443,LENGTH=24200,BOSS_START=22700,TAU=Math.PI*2,BOSS_HP=1200
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x)),lerp=(a,b,t)=>a+(b-a)*t,rand=(a,b)=>a+Math.random()*(b-a),dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y),fmt=t=>`${Math.floor(t/60)}:${String(Math.floor(t%60)).padStart(2,'0')}`;
 const forms=[{name:'小柯基',short:'初心',color:'#f6c481',damage:23,skill:'勇氣吠叫',desc:'近身連擊 · 吠叫震退敵人'},{name:'麵包騎士',short:'吐司盾',color:'#ffdc91',damage:35,skill:'盾牌衝撞',desc:'傷害減免 25% · 擊碎盾牌與酥皮牆'},{name:'火花柯基',short:'辣椒焰',color:'#ff8762',damage:24,skill:'烈焰扇射',desc:'遠程火球 · 點燃荊棘與敵人'},{name:'疾風柯基',short:'薄荷風',color:'#92e8cb',damage:27,skill:'旋風連斬',desc:'二段跳 · 空中移動更靈活'}];
 const names=['夕照入口','酥皮拱廊','糖霜市集','烤爐後巷','薄荷屋頂','鐘樓長街','最後的路燈'];
-let imgs={},loaded=false,keys={},pressed={},mode='menu',previousMode='play',muted=false,ac=null,music=null,gamepadOld={},shake=0,hitstop=0,clock=0,cam=0,zone=-1,toast=null,toastQueue=[],boss=null,enemies=[],shots=[],particles=[],drops=[],texts=[],gates=[],platforms=[],hazards=[],walls=[],lamps=[],pickups=[],decor=[],crates=[],vents=[],stats={},player={},checkpoint=100,saved=null,bossTime=0,levelTime=0,winTime=0,assist=false;
+let imgs={},loaded=false,keys={},pressed={},mode='menu',previousMode='play',muted=false,ac=null,music=null,gamepadOld={},shake=0,hitstop=0,clock=0,cam=0,zone=-1,ending=null,toast=null,toastQueue=[],boss=null,enemies=[],shots=[],particles=[],drops=[],texts=[],gates=[],platforms=[],hazards=[],walls=[],lamps=[],pickups=[],decor=[],crates=[],vents=[],stats={},player={},checkpoint=100,saved=null,bossTime=0,levelTime=0,winTime=0,assist=false;
 try{saved=JSON.parse(localStorage.getItem('sunset-corgi-v1')||'null')}catch{}if(saved)$('continue').hidden=false;
 function announce(title,sub='',seconds=4){toastQueue.push({title,sub,life:seconds,max:seconds});}
 const mixer=new window.CorgiAudio();
@@ -77,19 +77,19 @@ function drawStreetObjects(){
  }
 }
 
-function start(resume=false){clearInput();assist=$('assist').checked;makeLevel();player={x:120,y:G,vx:0,vy:0,w:42,h:43,hp:assist?160:120,max:assist?160:120,energy:100,form:0,unlocked:[true,false,false,false],dir:1,on:true,coyote:.12,jumpBuffer:0,jumpHold:0,jumps:0,dash:0,dashCd:0,atk:0,atkCd:0,skillCd:0,inv:0,combo:0,comboT:0,coins:0,medals:0,attackId:0};stats={kills:0,deaths:0,coins:0,time:0};levelTime=0;bossTime=0;checkpoint=120;cam=0;clock=0;zone=-1;toast=null;toastQueue=[];
+function start(resume=false){resetEnding();hitstop=0;clearInput();assist=$('assist').checked;makeLevel();player={x:120,y:G,vx:0,vy:0,w:42,h:43,hp:assist?160:120,max:assist?160:120,energy:100,form:0,unlocked:[true,false,false,false],dir:1,on:true,coyote:.12,jumpBuffer:0,jumpHold:0,jumps:0,dash:0,dashCd:0,atk:0,atkCd:0,skillCd:0,inv:0,combo:0,comboT:0,coins:0,medals:0,attackId:0};stats={kills:0,deaths:0,coins:0,time:0};levelTime=0;bossTime=0;checkpoint=120;cam=0;clock=0;zone=-1;toast=null;toastQueue=[];
 if(resume&&saved){player.x=saved.x;checkpoint=saved.x;player.unlocked=saved.unlocked;player.form=saved.form;player.coins=saved.coins;levelTime=saved.time||0;stats={...stats,...saved.stats};gates.forEach(g=>g.clear=!!saved.gates?.[g.index]);crates.forEach(c=>c.broken=!!saved.brokenCrates?.includes(c.x));player.medals=gates.filter(g=>g.clear&&g.medal).length;walls.forEach((w,i)=>{if(saved.walls?.[i])w.hp=0});pickups.forEach(p=>{if(p.kind==='form'&&player.unlocked[p.form])p.taken=true});lamps.forEach(l=>l.on=l.x<=player.x);enemies=enemies.filter(e=>e.x>player.x-400);cam=clamp(player.x-280,0,LENGTH-W)}
 mode='play';$('menu').classList.add('hidden');$('dialog').classList.add('hidden');cv.focus();audioStart();mixer.setScene('street',true);announce(resume?'路燈還為你亮著':'找到街角的她','← → 移動 · 空白鍵跳躍 · J 攻擊 · K 閃避',6);}
 function save(){const data={x:checkpoint,unlocked:player.unlocked,form:player.form,coins:player.coins,time:levelTime,stats,gates:Array.from({length:6},(_,i)=>i===2||!!gates.find(g=>g.index===i)?.clear),brokenCrates:crates.filter(c=>c.broken).map(c=>c.x),walls:walls.map(w=>w.hp<=0)};try{localStorage.setItem('sunset-corgi-v1',JSON.stringify(data));saved=data;$('continue').hidden=false}catch{}}
 function damagePlayer(n,sourceX){if(player.inv>0||player.dash>0||mode!=='play')return;const mult=(assist?.6:1)*(player.form===1?.75:1);player.hp-=Math.ceil(n*mult);player.inv=1.0;player.vx=(player.x<sourceX?-1:1)*230;player.vy=-210;player.on=false;shake=7;sound('hurt');puff(player.x,player.y-25,'#ff8d83');if(player.hp<=0){player.hp=0;stats.deaths++;mode='dead';showDialog('再試一次，短腿英雄。',`<p>路燈記住了你的進度。已解鎖的變身會保留。${boss?' BOSS 戰可立即重挑，不必重跑街區。':''}</p><p>提示：K 閃避有短暫無敵；BOSS 出現金色星星時，是最好的進攻機會。</p>`,'從存檔點重來',()=>respawn())}}
 function respawn(){const wasBoss=!!boss;mode='play';$('dialog').classList.add('hidden');player.hp=player.max;player.energy=100;player.inv=2;player.vx=player.vy=0;player.y=G;player.on=true;player.dash=0;shots=[];if(wasBoss){player.x=BOSS_START+130;spawnBoss()}else{player.x=checkpoint;enemies=enemies.filter(e=>e.room<0&&e.x>checkpoint-500);gates.filter(g=>g.active&&!g.clear).forEach(g=>{g.active=false;g.wave=0})}cv.focus()}
 function hurtEnemy(e,dmg,knock=90){if(e.dead)return;if(e.type==='guard'&&e.state==='guard'&&player.form!==1&&player.form!==2)dmg=Math.max(3,Math.floor(dmg*.22));sound('impact',.055);e.hp-=dmg;e.flash=.12;e.stun=.16;e.x+=Math.sign(e.x-player.x)*knock*.08;float(e.x,e.y-55,Math.round(dmg));puff(e.x,e.y-25,forms[player.form].color,5,90);player.energy=Math.min(100,player.energy+2);stats.hits=(stats.hits||0)+1;if(e.hp<=0){e.dead=true;stats.kills++;player.coins+=3;stats.coins+=3;sound('coin',.035);if(Math.random()<.15)collectHeart(e.x,e.y-25);puff(e.x,e.y-25,'#ffd18a',16,150)}}
-function hurtBoss(dmg){if(!boss||boss.dead||boss.state==='intro')return;let open=boss.state==='rest';const dealt=dmg*(open?1:.13);boss.hp-=dealt;boss.flash=.08;float(boss.x+rand(-20,20),boss.y-120,open?Math.round(dealt):'防守',open?'#ffe9a1':'#b6a6b6');player.energy=Math.min(100,player.energy+1.5);if(open){sound('impact',.065);puff(boss.x,boss.y-90,'#ffe5a3',4);shake=2}if(boss.hp<=0){boss.hp=0;boss.dead=true;boss.state='defeated';boss.t=0;mixer.setScene('reunion');shots=shots.filter(s=>s.friendly);player.hp=Math.min(player.max,player.hp+50);announce('發條停了，街燈亮了。','向右走，女主人正在等你。',7);puff(boss.x,boss.y-80,'#ffc77a',70,260);sound('win');try{localStorage.removeItem('sunset-corgi-v1')}catch{}}}
+function hurtBoss(dmg){if(!boss||boss.dead||boss.state==='intro')return;let open=boss.state==='rest';const dealt=dmg*(open?1:.13);boss.hp-=dealt;boss.flash=.08;float(boss.x+rand(-20,20),boss.y-120,open?Math.round(dealt):'防守',open?'#ffe9a1':'#b6a6b6');player.energy=Math.min(100,player.energy+1.5);if(open){sound('impact',.065);puff(boss.x,boss.y-90,'#ffe5a3',4);shake=2}if(boss.hp<=0){boss.hp=0;boss.dead=true;boss.state='defeated';boss.t=0;beginEnding()}}
 function fire(x,y,vx,vy,friendly=true,damage=24,kind='fire'){shots.push({x,y,vx,vy,friendly,damage,kind,life:kind==='wave'?3:2.5,r:kind==='wave'?16:8,hit:new Set()})}
 function attack(){if(player.atkCd>0||player.dash>.08)return;player.combo=player.comboT>0?(player.combo+1)%3:0;player.comboT=.9;player.atk=.20;player.atkCd=player.form===1?.42:.31;player.attackId++;sound('hit',.055);if(player.form===2){fire(player.x+player.dir*35,player.y-27,player.dir*500,0,true,forms[2].damage);return}const reach=player.form===3?104:88,damage=forms[player.form].damage*(player.combo===2?1.45:1);let any=false;for(const e of enemies){if(e.dead)continue;if(Math.abs(e.x-player.x)<reach&&Math.abs((e.y-25)-(player.y-24))<70&&(e.x-player.x)*player.dir>-20){hurtEnemy(e,damage);any=true}}if(boss&&!boss.dead&&Math.abs(boss.x-player.x)<155&&Math.abs(player.y-boss.y)<145){hurtBoss(damage);any=true}for(const w of walls){if(w.hp>0&&w.kind===1&&player.form===1&&Math.abs(w.x-player.x)<110){w.hp-=damage;puff(w.x,G-40,'#efba75',10);if(w.hp<=0){announce('酥皮牆碎了','麵包騎士可以擊碎硬殼與盾牌。');sound('skill')}}}for(const c of crates)if(!c.broken&&Math.abs(c.x-player.x)<reach&&Math.abs(G-20-(player.y-24))<65&&(c.x-player.x)*player.dir>-20)breakCrate(c);if(any){shake=3;hitstop=.045}}
 function skill(){if(player.energy<30||player.skillCd>0)return;player.energy-=30;player.attackId++;player.skillCd=2.2;player.atk=.4;player.inv=Math.max(player.inv,.35);sound('skill');puff(player.x,player.y-30,forms[player.form].color,20,180);if(player.form===2){for(let i=-2;i<=2;i++)fire(player.x,player.y-30,player.dir*(450-Math.abs(i)*20),i*85,true,36)}else if(player.form===1){player.dash=.46;player.vx=player.dir*670;player.skillDash=true}else{const r=player.form===3?180:140;for(const e of enemies)if(!e.dead&&Math.abs(e.x-player.x)<r&&Math.abs(e.y-player.y)<140)hurtEnemy(e,player.form===3?65:48,180);if(boss&&!boss.dead&&Math.abs(boss.x-player.x)<r+65)hurtBoss(player.form===3?85:58);if(player.form===3){player.vy=-310;player.on=false}}}
 function changeForm(n=null){let next=n;if(next===null){next=player.form;do{next=(next+1)%4}while(!player.unlocked[next])}if(!player.unlocked[next]||next===player.form)return;player.form=next;sound('skill',.06);puff(player.x,player.y-35,forms[next].color,24);announce(forms[next].name,forms[next].desc,3);save()}
-function interact(){if(boss?.dead&&player.x>23600){win();return}if(!boss&&player.x>22200){if(player.medals<3){announce('鐘樓大門尚未開啟','完成街區戰鬥，集齊 3 枚烘焙徽章。');return}player.x=BOSS_START+130;checkpoint=player.x;save();spawnBoss();return}let lamp=lamps.find(l=>Math.abs(l.x-player.x)<100);if(lamp){checkpoint=lamp.x;player.hp=player.max;player.energy=100;lamp.on=true;save();announce('路燈存檔','生命與能量已補滿。',2);sound('coin')}}
+function interact(){if(mode!=='play'||boss?.dead)return;if(!boss&&player.x>22200){if(player.medals<3){announce('鐘樓大門尚未開啟','完成街區戰鬥，集齊 3 枚烘焙徽章。');return}player.x=BOSS_START+130;checkpoint=player.x;save();spawnBoss();return}let lamp=lamps.find(l=>Math.abs(l.x-player.x)<100);if(lamp){checkpoint=lamp.x;player.hp=player.max;player.energy=100;lamp.on=true;save();announce('路燈存檔','生命與能量已補滿。',2);sound('coin')}}
 function spawnBoss(){boss={x:BOSS_START+760,y:G,hp:BOSS_HP*(assist?.72:1),max:BOSS_HP*(assist?.72:1),phase:1,state:'intro',t:2.0,move:0,dir:-1,targetX:0,flash:0,dead:false,jumpStart:0,hit:false,shotT:0};bossTime=0;enemies=[];shots=[];mixer.setScene('boss',true);announce('BOSS · 發條烘焙師','避開紅色預警，在金色硬直時反擊。',5);}
 function updateBoss(dt){if(!boss)return;let b=boss;if(b.dead){b.t+=dt;return}bossTime+=dt;b.flash=Math.max(0,b.flash-dt);b.t-=dt;let phase=b.hp/b.max>.66?1:b.hp/b.max>.33?2:3;if(phase>b.phase){b.phase=phase;announce(phase===2?'烤爐升溫':'最後一爐！',phase===2?'衝撞後追加火焰。留意地面波紋。':'連續招式更快；最後一次攻擊後才會露出破綻。',4);puff(b.x,b.y-80,'#ff9b63',35)}
 if(b.state==='intro'){if(b.t<=0){b.state='rest';b.t=1.8}return}
@@ -103,15 +103,134 @@ else if(b.state==='volley'){b.shotT-=dt;if(b.shotT<=0){b.shotT=b.phase===3?.30:.
 else if(b.state==='spinWind'){if(b.t<=0){b.state='spin';b.t=1.65;b.hit=false}}
 else if(b.state==='spin'){b.x+=b.dir*180*dt;b.x=clamp(b.x,BOSS_START+120,BOSS_START+1190);if(Math.abs(player.x-b.x)<145&&Math.abs(player.y-b.y)<90){damagePlayer(20,b.x)}if(b.t<=0){b.state='rest';b.t=2.4}}
 }
-function win(){mode='win';winTime=clock;mixer.setScene('reunion');try{localStorage.removeItem('sunset-corgi-v1');saved=null}catch{}showDialog('找到你了。',`<p>黃昏麵包街重新亮起了燈。<br>而你要找的那個人，一直都在等你。</p><table><tr><td>街區用時</td><td>${fmt(levelTime)}</td></tr><tr><td>BOSS 用時</td><td>${fmt(bossTime)}</td></tr><tr><td>擊退敵人</td><td>${stats.kills}</td></tr><tr><td>收集餅乾</td><td>${player.coins}</td></tr><tr><td>跌倒後再站起</td><td>${stats.deaths} 次</td></tr></table>`,'再冒險一次',()=>start(false))}
+const film=$('reunionFilm');
+const endingActions=$('endingActions');
+const smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t)};
+function resetEnding(){
+ film.pause();film.hidden=true;film.style.opacity='0';try{film.currentTime=0}catch{}
+ ending=null;endingActions.hidden=true;$('endingStatus').textContent='';
+ $('stage').classList.remove('is-ending');
+}
+function beginEnding(){
+ if(ending)return;
+ clearInput();mode='ending';shots=[];enemies=[];drops=[];texts=[];toast=null;toastQueue=[];hitstop=0;
+ player.vx=player.vy=0;player.atk=player.dash=0;player.inv=0;
+ ending={phase:'burst',t:0,total:0,pops:0,boom:false,rings:[],startCam:cam,cam:LENGTH-W,heroStart:player.x,girlX:LENGTH+120,girlTarget:LENGTH-W+650,filmT:0,lastFilmT:0,stall:0,fallback:false,foley:0};
+ $('stage').classList.add('is-ending');endingActions.hidden=true;
+ mixer.fadeOutMusic(.55);$('endingStatus').textContent='發條烘焙師停止了。';
+ try{localStorage.removeItem('sunset-corgi-v1');saved=null;$('continue').hidden=true}catch{}
+}
+function beginReunionFilm(){
+ const e=ending;e.phase='film';e.t=0;e.filmT=0;e.lastFilmT=0;e.stall=0;e.foley=0;
+ film.muted=true;film.hidden=false;film.style.opacity='0';
+ try{film.currentTime=0;const request=film.play();request?.catch(()=>{if(ending===e)fallbackFilm()})}catch{fallbackFilm()}
+}
+function fallbackFilm(){
+ if(!ending||ending.phase!=='film'||ending.fallback)return;
+ film.pause();film.hidden=true;ending.fallback=true;
+ // Continue from the last decoded time if playback stalls mid-shot.
+ ending.filmT=Math.max(0,ending.lastFilmT);ending.stall=0;
+}
+function returnFromFilm(){
+ if(!ending||ending.phase!=='film')return;
+ ending.phase='return';ending.t=0;film.pause();
+}
+function resumeEndingMedia(){
+ const e=ending;if(e?.phase==='film'&&film.ended){returnFromFilm();return}if(e?.phase==='film'&&!e.fallback)try{film.play()?.catch(()=>{if(ending===e)fallbackFilm()})}catch{fallbackFilm()}
+}
+film.addEventListener('ended',()=>{if(mode==='ending')returnFromFilm()});
+film.addEventListener('error',()=>fallbackFilm());
+function updateEnding(dt){
+ const e=ending;if(!e)return;e.t+=dt;e.total+=dt;
+ e.rings.forEach(r=>r.age+=dt);e.rings=e.rings.filter(r=>r.age<.7);
+ if(e.phase==='burst'){
+  player.y=lerp(player.y,G,Math.min(1,dt*8));boss.y=lerp(boss.y,G,Math.min(1,dt*8));
+  const beats=[0,.38,.77,1.16];
+  while(e.pops<beats.length&&e.t>=beats[e.pops]){const n=e.pops++,x=boss.x+[-45,35,-15,25][n],y=boss.y-[65,125,155,80][n];puff(x,y,n%2?'#ffd39a':'#ee956d',14,130);e.rings.push({x,y,age:0});sound('burst',.045);shake=5;}
+  if(e.t>=1.7&&!e.boom){e.boom=true;puff(boss.x,boss.y-85,'#ffce8e',55,240);puff(boss.x,boss.y-90,'#b9d7bb',18,170);e.rings.push({x:boss.x,y:boss.y-80,age:0});shake=11;sound('defeat',.065);if(player.form){puff(player.x,player.y-30,forms[player.form].color,20);player.form=0}}
+  if(e.t>=2.35){e.phase='enter';e.t=0;e.startCam=cam;e.heroStart=player.x;e.girlX=e.cam+W+120;mixer.setScene('reunion',true);$('endingStatus').textContent='她走進了亮起的街燈。';}
+ }else if(e.phase==='enter'){
+  cam=lerp(e.startCam,e.cam,smooth(e.t/1.9));
+  const target=e.cam+265,old=player.x;player.x=lerp(e.heroStart,target,smooth(e.t/2.65));player.vx=(player.x-old)/dt;player.dir=player.vx<-.1?-1:1;player.y=G;player.on=true;
+  e.girlX=lerp(e.cam+W+120,e.girlTarget,clamp(e.t/3.2,0,1));
+  if(e.t>=3.2){player.vx=0;player.dir=1;e.phase='settle';e.t=0;}
+ }else if(e.phase==='settle'){
+  if(e.t>=.55)beginReunionFilm();
+ }else if(e.phase==='film'){
+  if(e.fallback)e.filmT+=dt;
+  else{
+   const time=Number(film.currentTime)||0;
+   if(time>e.lastFilmT+.001){e.lastFilmT=time;e.stall=0}else e.stall+=dt;
+   e.filmT=time;
+   if(film.readyState>=2)film.style.opacity=String(clamp(e.t/.3,0,1));
+   if(e.stall>3||film.error)fallbackFilm();
+  }
+  const cues=[.5,.82,1.13,1.45,1.77,2.23,3.2,3.53,3.77];
+  while(e.foley<cues.length&&e.filmT>=cues[e.foley]){const n=e.foley++;sound(n<4?'paw':n===4?'jump':n===5?'embrace':'nuzzle',n<4?.027:.04)}
+  if(e.fallback&&e.filmT>=6.55||!e.fallback&&film.ended)returnFromFilm();
+ }else if(e.phase==='return'){
+  cam=lerp(e.cam,e.girlTarget-W/2,smooth(e.t/.75));
+  film.style.opacity=String(1-clamp(e.t/.55,0,1));
+  if(e.t>=.8){film.hidden=true;win()}
+ }
+ updateEffects(dt);pressed={};
+}
+function drawWalkingGirl(x,y,frame=0,alpha=1){
+ const im=imgs['girl-walk-v1'];if(!im)return;
+ const crops=[[110,54,394,616],[672,54,300,616],[1143,54,407,616],[1748,54,308,616]];
+ const [sx,sy,sw,sh]=crops[frame%4],height=166,width=sw*height/sh;
+ ctx.save();ctx.globalAlpha=alpha;ctx.drawImage(im,sx,sy,sw,sh,Math.round(x-width/2),Math.round(y-height),Math.round(width),height);ctx.restore();
+}
+function drawEndingActors(){
+ const e=ending;if(!e)return;
+ for(const r of e.rings){let size=12+r.age*95;ctx.save();ctx.globalAlpha=(1-r.age/.7)*.75;ctx.strokeStyle='#ffe4ae';ctx.lineWidth=3;ctx.strokeRect(Math.round(r.x-cam-size/2),Math.round(r.y-size/2),Math.round(size),Math.round(size));ctx.restore()}
+ if(e.phase==='burst')return;
+ const gx=e.girlX-cam;
+ if(e.phase==='enter'){
+  shadow(gx,G,30);drawWalkingGirl(gx,G+2,Math.floor(e.t*8)%4);return;
+ }
+ if(e.phase==='settle'){
+  const a=clamp(e.t/.35,0,1);drawWalkingGirl(gx,G+2,1,1-a);sprite('reunion-0',gx,G+2,130,false,a);return;
+ }
+ if(e.phase==='film'){
+  // Canvas fallback uses the original running and embrace poses.
+  const t=e.filmT;
+  if(t<2.22){sprite('reunion-0',gx,G+2,130);let u=clamp(t/1.77,0,1),x=lerp(e.cam+265,e.girlTarget-95,u)-cam,y=G;
+   if(t>=1.77){let jump=clamp((t-1.77)/.45,0,1);x=lerp(e.girlTarget-95,e.girlTarget-32,jump)-cam;y-=Math.sin(jump*Math.PI/2)*54}
+   shadow(x,G,27);sprite(t<1.77?'run-'+Math.floor(t*14)%8:'dog-10',x,y+2,78);
+  }else{const pose=t<2.5?1:t<2.85?2:t<3.3?3:t<4.55?4:5;sprite('reunion-'+pose,gx,G+2,148)}
+ }else{
+  shadow(gx,G,54);sprite('reunion-5',gx,G+2,156);
+  for(let i=0;i<3;i++){const t=(e.total*.65+i*.43)%2;drawHeart(gx-31+i*25,G-125-t*27,2,Math.sin(t*Math.PI/2)*.65)}
+ }
+}
+function drawHeart(x,y,scale=2,alpha=1){
+ ctx.save();ctx.globalAlpha=alpha;const rows=['0110110','1111111','1111111','0111110','0011100','0001000'];
+ rows.forEach((r,iy)=>[...r].forEach((v,ix)=>{if(v==='1')rect(x+ix*scale,y+iy*scale,scale,scale,'#f3aaa0')}));ctx.restore();
+}
+const endingGlyphs={Q:['01110','10001','10001','10001','10101','10010','01101'],U:['10001','10001','10001','10001','10001','10001','01110'],E:['11111','10000','10000','11110','10000','10000','11111'],S:['01111','10000','10000','01110','00001','00001','11110'],T:['11111','00100','00100','00100','00100','00100','00100'],C:['01111','10000','10000','10000','10000','10000','01111'],O:['01110','10001','10001','10001','10001','10001','01110'],M:['10001','11011','10101','10101','10001','10001','10001'],P:['11110','10001','10001','11110','10000','10000','10000'],L:['10000','10000','10000','10000','10000','10000','11111']};
+function pixelTitle(label,y,scale=5){
+ let units=[...label].reduce((n,c)=>n+(c===' '?4:6),-1),x=(W-units*scale)/2;
+ for(const c of label){if(c===' '){x+=4*scale;continue}const glyph=endingGlyphs[c];glyph.forEach((r,iy)=>[...r].forEach((v,ix)=>{if(v==='1'){rect(x+ix*scale+3,y+iy*scale+4,scale,scale,'#543448');rect(x+ix*scale,y+iy*scale,scale,scale,iy<3?'#fff0bd':'#eab473')}}));x+=6*scale}
+}
+function drawCompletion(){
+ if(mode!=='win'||!ending)return;
+ const a=clamp((clock-winTime)/.8,0,1);ctx.save();ctx.globalAlpha=a;
+ rect(195,88,570,123,'#281d32cf');rect(207,96,546,2,'#be8e65');rect(207,199,546,2,'#be8e65');
+ star(215,148,'#f3cb88');star(744,148,'#f3cb88');pixelTitle('QUEST COMPLETE',116,6);
+ text('找到你了。',W/2,181,17,'#ffe4bc','center');ctx.restore();
+}
+function showJourney(){showDialog('這一段回家的路',`<table><tr><td>街區用時</td><td>${fmt(levelTime)}</td></tr><tr><td>BOSS 用時</td><td>${fmt(bossTime)}</td></tr><tr><td>擊退敵人</td><td>${stats.kills}</td></tr><tr><td>收集餅乾</td><td>${player.coins}</td></tr><tr><td>跌倒後再站起</td><td>${stats.deaths} 次</td></tr></table>`,'回到重逢',()=>{$('dialog').classList.add('hidden')})}
+
+function win(){mode='win';winTime=clock;ending.phase='complete';ending.t=0;cam=ending.girlTarget-W/2;endingActions.hidden=false;clearInput();sound('win',.035);$('endingStatus').textContent='Quest Complete。小柯基回到了她的懷裡。';}
 let dialogAction=null;
 function showDialog(title,body,button,action){$('dialogTitle').textContent=title;$('dialogBody').innerHTML=body;$('dialogClose').textContent=button;dialogAction=action;$('dialog').classList.remove('hidden')}
-function pause(){if(mode==='play'){clearInput();mode='pause';showDialog('在路燈下歇一歇。','<p>你的冒險已暫停。<br>Q 切換已解鎖的變身，L 使用技能。路燈旁按 E 補給與存檔。</p>','繼續冒險',()=>{mode='play';$('dialog').classList.add('hidden');cv.focus()})}else if(mode==='pause'){$('dialogClose').click()}}
-function help(){previousMode=mode;if(mode==='play')mode='pause';showDialog('冒險手冊',`<table><tr><td>← → / A D</td><td>移動</td></tr><tr><td>空白鍵 / W / ↑</td><td>跳躍；疾風形態可二段跳</td></tr><tr><td>J / 滑鼠左鍵</td><td>攻擊，按住可連擊</td></tr><tr><td>K / Shift</td><td>閃避，短暫無敵</td></tr><tr><td>L</td><td>技能，消耗 30 能量</td></tr><tr><td>Q / 1–4</td><td>切換已解鎖的變身</td></tr><tr><td>E</td><td>路燈補給／大門／重逢</td></tr><tr><td>Esc / P</td><td>暫停</td></tr></table><p>手柄：左搖桿移動，A 跳躍、X 攻擊、B 閃避、Y 技能、LB 變身、RB 互動。<br>街區保留五場單批遭遇戰。箱子可打碎或跳過；地面黃光表示即將噴氣，熄滅後即可通過。BOSS 血量已減少 62.5%。</p>`,'知道了',()=>{mode=previousMode;$('dialog').classList.add('hidden');cv.focus()})}
-function update(dt){clock+=dt;if(mode!=='play'){updateEffects(dt);return}stats.time+=dt;if(!boss)levelTime+=dt;if(hitstop>0){hitstop-=dt;return}for(let k of ['atk','atkCd','dashCd','skillCd','inv','comboT','jumpHold'])player[k]=Math.max(0,player[k]-dt);player.energy=Math.min(100,player.energy+dt*5.5);if(player.on){player.coyote=.14;player.jumps=0}else player.coyote-=dt;
+function pause(){if(mode==='play'||mode==='ending'){const resumeMode=mode;clearInput();if(resumeMode==='ending')film.pause();mode='pause';showDialog('在路燈下歇一歇。',resumeMode==='ending'?'<p>重逢會從這一刻繼續。</p>':'<p>你的冒險已暫停。<br>Q 切換已解鎖的變身，L 使用技能。路燈旁按 E 補給與存檔。</p>','繼續',()=>{mode=resumeMode;$('dialog').classList.add('hidden');if(mode==='ending')resumeEndingMedia();cv.focus()})}else if(mode==='pause'){$('dialogClose').click()}}
+function help(){previousMode=mode;if(mode==='ending')film.pause();if(mode==='play'||mode==='ending')mode='pause';showDialog('冒險手冊',`<table><tr><td>← → / A D</td><td>移動</td></tr><tr><td>空白鍵 / W / ↑</td><td>跳躍；疾風形態可二段跳</td></tr><tr><td>J / 滑鼠左鍵</td><td>攻擊，按住可連擊</td></tr><tr><td>K / Shift</td><td>閃避，短暫無敵</td></tr><tr><td>L</td><td>技能，消耗 30 能量</td></tr><tr><td>Q / 1–4</td><td>切換已解鎖的變身</td></tr><tr><td>E</td><td>路燈補給／大門／重逢</td></tr><tr><td>Esc / P</td><td>暫停</td></tr></table><p>手柄：左搖桿移動，A 跳躍、X 攻擊、B 閃避、Y 技能、LB 變身、RB 互動。<br>街區保留五場單批遭遇戰。箱子可打碎或跳過；地面黃光表示即將噴氣，熄滅後即可通過。BOSS 血量已減少 62.5%。</p>`,'知道了',()=>{mode=previousMode;$('dialog').classList.add('hidden');if(mode==='ending')resumeEndingMedia();cv.focus()})}
+function update(dt){clock+=dt;if(mode==='ending'){updateEnding(dt);return}if(mode!=='play'){if(mode==='win'&&ending)ending.total+=dt;if(mode!=='pause')updateEffects(dt);return}stats.time+=dt;if(!boss)levelTime+=dt;if(hitstop>0){hitstop-=dt;return}for(let k of ['atk','atkCd','dashCd','skillCd','inv','comboT','jumpHold'])player[k]=Math.max(0,player[k]-dt);player.energy=Math.min(100,player.energy+dt*5.5);if(player.on){player.coyote=.14;player.jumps=0}else player.coyote-=dt;
 if(pressed.jump)player.jumpBuffer=.16;else player.jumpBuffer=Math.max(0,player.jumpBuffer-dt);
 if(player.jumpBuffer>0&&(player.coyote>0||(player.form===3&&player.jumps<2))){player.vy=player.form===3?-570:-540;player.on=false;player.coyote=0;player.jumps++;player.jumpHold=.14;player.jumpBuffer=0;sound('jump',.035);puff(player.x,player.y,'#eac7a0',5,80)}if(!keys.jump&&player.jumpHold<=0&&player.vy<-210)player.vy+=1100*dt;
-if(pressed.dash&&player.dashCd<=0){player.dash=.26;player.dashCd=.9;player.vx=player.dir*(player.form===3?730:640);player.skillDash=false;sound('dash',.04)}if(pressed.form)changeForm();for(let i=0;i<4;i++)if(pressed['form'+i])changeForm(i);if(pressed.skill)skill();if(pressed.interact)interact();if(keys.attack)attack();
+if(pressed.dash&&player.dashCd<=0){player.dash=.26;player.dashCd=.9;player.vx=player.dir*(player.form===3?730:640);player.skillDash=false;sound('dash',.04)}if(pressed.form)changeForm();for(let i=0;i<4;i++)if(pressed['form'+i])changeForm(i);if(pressed.skill)skill();if(pressed.interact)interact();if(keys.attack)attack();if(mode!=='play')return;
 let move=(keys.right?1:0)-(keys.left?1:0);if(move)player.dir=move;let oldx=player.x,oldy=player.y;
 if(player.dash>0){player.dash-=dt;player.vy*=.82;if(player.skillDash){for(let e of enemies)if(!e.dead&&Math.abs(e.x-player.x)<80&&Math.abs(e.y-player.y)<60&&e.attackId!==player.attackId){e.attackId=player.attackId;hurtEnemy(e,75)}if(boss&&!boss.dead&&Math.abs(boss.x-player.x)<140&&!player.bossDashed){hurtBoss(100);player.bossDashed=true}}puff(player.x-player.dir*25,player.y-24,forms[player.form].color,1,20)}else{player.skillDash=false;player.bossDashed=false;player.vx=lerp(player.vx,move*(player.form===3?265:235),Math.min(1,dt*(player.on?19:10)));player.vy+=1350*dt}
 player.x+=player.vx*dt;player.y+=player.vy*dt;player.on=false;if(player.y>=G){player.y=G;player.vy=0;player.on=true}for(let pl of platforms){if(player.x>pl.x-15&&player.x<pl.x+pl.w+15&&oldy<=pl.y+3&&player.y>=pl.y&&player.vy>=0){player.y=pl.y;player.vy=0;player.on=true}}
@@ -152,14 +271,14 @@ for(let g of gates){let x=g.x-cam;if(g.active&&!g.clear){for(let xx of [g.x-350-
 for(let p of pickups){if(p.taken)continue;let x=p.x-cam,y=p.y+Math.sin(clock*3+p.x)*4;if(x<-50||x>W+50)continue;if(p.kind==='coin'){ctx.fillStyle='#e7ad53';ctx.beginPath();ctx.arc(x,y,6,0,TAU);ctx.fill();rect(x-1,y-4,2,8,'#fff1ad')}else if(p.kind==='heart')text('♥',x,y+5,23,'#f1a8a3','center');else{shadow(x,y+27,24);if(p.form<3)sprite(p.form===1?'bread-item':'ember-item',x,y+22,45);else{ctx.fillStyle='#a3e6ca';ctx.beginPath();ctx.ellipse(x,y,12,22,.7,0,TAU);ctx.fill();ctx.strokeStyle='#366b66';ctx.beginPath();ctx.moveTo(x-9,y+16);ctx.lineTo(x+8,y-16);ctx.stroke()}star(x-25,y-15,forms[p.form].color);star(x+25,y+4,forms[p.form].color);text(forms[p.form].short,x,y-35,12,forms[p.form].color,'center')}}
 for(let d of drops)text('♥',d.x-cam,d.y+Math.sin(d.t*4)*4,22,'#f5aaa7','center');
 if(!boss||boss.dead){let x=22500-cam;if(x>-250&&x<W+250){rect(x-45,G-205,90,205,'#4a354d');rect(x-38,G-198,76,198,'#956d65');rect(x-30,G-190,60,188,'#382c46');text('鐘樓烤爐',x,G-220,18,'#ffe4b2','center');text(`${player.medals||0} / 3  烘焙徽章`,x,G-235,11,'#d7b992','center');if(player.x>22200&&!boss)text('E  迎戰發條烘焙師',x,G-70,13,'#ffe7a8','center')}}
-if(boss?.dead){sprite('reunion-0',23850-cam,G+2,115);if(player.x>23600)text('E  回到她身邊',23850-cam,G-145,15,'#ffe2ac','center')}
+
 }
 function randStable(i,n){return ((i*17+13)%n)}
 function drawEnemy(e){let x=e.x-cam;if(x<-120||x>W+120)return;shadow(x,e.y,e.type==='guard'?25:22);let w=e.type==='slime'?57:e.type==='flyer'?62:64;let y=e.y+(e.type==='slime'&&e.state==='move'?Math.sin(clock*5)*2:0);if(e.flash>0){ctx.globalAlpha=.65}sprite(e.type==='flyer'?'flyer':e.type==='slime'?'slime':'guard',x,y+2,w,e.dir>0);ctx.globalAlpha=1;if(e.hp<e.max)bar(x-24,y-70,48,6,e.hp/e.max,'#f1a07d');if(e.state==='wind'){text('!',x,y-80,26,'#ff7979','center');rect(x-50,y-2,100,3,'#f0887977')}if(e.state==='guard'){ctx.strokeStyle='#9ae1dc99';ctx.lineWidth=3;ctx.beginPath();ctx.arc(x+e.dir*20,y-30,29,-Math.PI/2,Math.PI/2);ctx.stroke()}if(e.burn>0){for(let k=0;k<3;k++)rect(x-15+k*12,y-24-Math.sin(clock*15+k)*8,5,9,'#ffaa64')}}
-function drawBoss(){if(!boss)return;let b=boss,x=b.x-cam;if(b.dead){ctx.save();ctx.translate(x,G);ctx.rotate(Math.min(1,b.t*2)*.4);sprite('boss',0,0,175,false,.5);ctx.restore();return}shadow(x,G,85);if(b.state.endsWith('Wind')){let pulse=.25+Math.sin(clock*14)*.10;ctx.fillStyle=`rgba(247,108,90,${pulse})`;if(b.state==='chargeWind')ctx.fillRect(b.dir<0?x-620:x,G-95,620,95);else if(b.state==='slamWind'){ctx.beginPath();ctx.ellipse(b.targetX-cam,G,125,16,0,0,TAU);ctx.fill();text('落點',b.targetX-cam,G-24,12,'#ffc1a3','center')}else if(b.state==='spinWind'){ctx.beginPath();ctx.arc(x,G-60,145,0,TAU);ctx.fill()}text('!',x,b.y-195,30,'#ff9a83','center')}
+function drawBoss(){if(!boss)return;let b=boss,x=b.x-cam;if(b.dead){if(ending?.phase==='burst'&&!ending.boom){const flash=Math.floor(ending.t*9)%2;sprite('boss',x,b.y+2,190,b.dir>0,flash?.2:1)}return}shadow(x,G,85);if(b.state.endsWith('Wind')){let pulse=.25+Math.sin(clock*14)*.10;ctx.fillStyle=`rgba(247,108,90,${pulse})`;if(b.state==='chargeWind')ctx.fillRect(b.dir<0?x-620:x,G-95,620,95);else if(b.state==='slamWind'){ctx.beginPath();ctx.ellipse(b.targetX-cam,G,125,16,0,0,TAU);ctx.fill();text('落點',b.targetX-cam,G-24,12,'#ffc1a3','center')}else if(b.state==='spinWind'){ctx.beginPath();ctx.arc(x,G-60,145,0,TAU);ctx.fill()}text('!',x,b.y-195,30,'#ff9a83','center')}
 ctx.save();if(b.state==='spin'){ctx.translate(x,b.y-80);ctx.rotate(Math.sin(clock*24)*.2);sprite('boss',0,80,190,b.dir>0,b.flash>0?.6:1)}else sprite('boss',x,b.y+3+Math.sin(clock*3)*2,190,b.dir>0,b.flash>0?.6:1);ctx.restore();if(b.state==='rest'){for(let i=0;i<3;i++)star(x-25+i*25,b.y-181+Math.sin(clock*7+i)*4);text('反擊！',x,b.y-210,13,'#ffe59b','center')}
 bar(220,480,520,16,b.hp/b.max,'#e48673');text('發條烘焙師',W/2,472,15,'#ffe3c1','center');text(`階段 ${b.phase} / 3`,750,493,11,'#d7b0a4');text(fmt(bossTime),205,493,12,'#d7b0a4','right')}
-function drawPlayer(){let p=player,x=p.x-cam;if(mode==='menu'){p={...p,x:260,y:G,form:0,dir:1,on:true,vx:0,inv:0,atk:0,dash:0};x=260}shadow(x,p.y,30);let color=forms[p.form||0].color;if(p.form){ctx.save();ctx.globalAlpha=.12+Math.sin(clock*5)*.035;ctx.fillStyle=color;ctx.beginPath();ctx.ellipse(x,p.y-30,45,39,0,0,TAU);ctx.fill();ctx.restore()}let name;if(p.dash>0)name='run-0';else if(!p.on)name=p.vy<0?'dog-10':'dog-3';else if(p.atk>0)name='dog-9';else if(Math.abs(p.vx)>15)name='run-'+Math.floor(clock*(p.form===3?16:12))%8;else name='dog-1';sprite(name,x,p.y+2,name.startsWith('run')?78:85,p.dir<0,p.inv>0&&Math.floor(clock*18)%2?.38:1);
+function drawPlayer(){if(ending&&!['burst','enter','settle'].includes(ending.phase))return;let p=player,x=p.x-cam;if(mode==='menu'){p={...p,x:260,y:G,form:0,dir:1,on:true,vx:0,inv:0,atk:0,dash:0};x=260}shadow(x,p.y,30);let color=forms[p.form||0].color;if(p.form){ctx.save();ctx.globalAlpha=.12+Math.sin(clock*5)*.035;ctx.fillStyle=color;ctx.beginPath();ctx.ellipse(x,p.y-30,45,39,0,0,TAU);ctx.fill();ctx.restore()}let name;if(p.dash>0)name='run-0';else if(!p.on)name=p.vy<0?'dog-10':'dog-3';else if(p.atk>0)name='dog-9';else if(Math.abs(p.vx)>15)name='run-'+Math.floor(clock*(p.form===3?16:12))%8;else name='dog-1';sprite(name,x,p.y+2,name.startsWith('run')?78:85,p.dir<0,p.inv>0&&Math.floor(clock*18)%2?.38:1);
 if(p.form){ctx.save();ctx.translate(Math.round(x),Math.round(p.y));ctx.scale(p.dir,1);const flap=Math.round(Math.sin(clock*(Math.abs(p.vx)>15?15:5))*2);const poly=(pts,c,edge)=>{ctx.beginPath();pts.forEach(([a,b],i)=>i?ctx.lineTo(a,b):ctx.moveTo(a,b));ctx.closePath();ctx.fillStyle=c;ctx.fill();if(edge){ctx.strokeStyle=edge;ctx.lineWidth=1.2;ctx.stroke()}};
 if(p.form===1){
 poly([[-6,-31],[-20,-31],[-28,-25+flap],[-37,-12+flap],[-27,-14],[-23,-10],[-12,-17]],'#a65562','#663e50');poly([[-8,-29],[-18,-29],[-27,-17+flap],[-19,-20]],'#e69a7e');
@@ -173,26 +292,51 @@ poly([[5,-33],[12,-35],[16,-31],[14,-26],[6,-27],[1,-31]],'#57b8a1','#366c6a');r
 poly([[-12,-28],[-18,-34],[-20,-41],[-15,-39],[-11,-34],[-10,-40],[-6,-36],[-4,-30],[0,-34],[0,-28],[-5,-23]],'#b8efdc','#538c86');poly([[-12,-29],[-16,-35],[-16,-37],[-10,-32],[-7,-33],[-6,-28]],'#f0ffed');poly([[12,-43],[17,-46],[23,-47],[20,-43],[16,-41]],'#a9ead2','#4b8d82');}
 ctx.restore();}
 if(p.atk>0&&p.form!==2){ctx.save();ctx.translate(x,p.y-29);if(p.dir<0)ctx.scale(-1,1);ctx.strokeStyle=color;ctx.lineWidth=p.combo===2?8:5;ctx.globalAlpha=p.atk/.2;ctx.beginPath();ctx.arc(5,-2,player.form===3?81:66,-1.05,1.05);ctx.stroke();ctx.lineWidth=2;ctx.strokeStyle='#fff8da';ctx.beginPath();ctx.arc(6,-2,60,-.95,.95);ctx.stroke();ctx.restore()}}
-function hud(){if(mode==='menu')return;rect(18,18,263,66,'#211d32e8');bar(32,34,152,15,player.hp/player.max,'#ef9e88');text('♥',193,47,17,'#eea194');text(`${Math.ceil(player.hp)} / ${player.max}`,267,46,11,'#dec6bb','right');bar(32,57,152,8,player.energy/100,forms[player.form].color);text('能量 '+Math.floor(player.energy),194,66,10,'#c6bec7');rect(292,18,176,66,'#211d32e8');text(forms[player.form].name,307,43,15,forms[player.form].color);text('Q 切換   L '+forms[player.form].skill,307,65,10,'#c9bdc1');
+function hud(){if(mode==='menu'||ending)return;rect(18,18,263,66,'#211d32e8');bar(32,34,152,15,player.hp/player.max,'#ef9e88');text('♥',193,47,17,'#eea194');text(`${Math.ceil(player.hp)} / ${player.max}`,267,46,11,'#dec6bb','right');bar(32,57,152,8,player.energy/100,forms[player.form].color);text('能量 '+Math.floor(player.energy),194,66,10,'#c6bec7');rect(292,18,176,66,'#211d32e8');text(forms[player.form].name,307,43,15,forms[player.form].color);text('Q 切換   L '+forms[player.form].skill,307,65,10,'#c9bdc1');
 rect(W-245,18,227,66,'#211d32e8');text(`餅乾 ${player.coins}   徽章 ${player.medals} / 3`,W-229,42,13,'#ffe1a1');text(boss?'鐘樓烤爐 · BOSS':names[Math.max(0,zone)],W-229,65,11,'#cfc0bd');text(fmt(levelTime+(boss?bossTime:0)),W-33,65,11,'#cfc0bd','right');
 let progress=clamp(player.x/BOSS_START,0,1);rect(18,H-17,W-36,3,'#261f34');rect(18,H-17,(W-36)*progress,3,'#dca967');for(let i=0;i<4;i++){let xx=22+i*38;rect(xx,96,31,27,player.form===i?'#75604deb':'#211d32c9');text(String(i+1),xx+15,114,12,player.unlocked[i]?forms[i].color:'#6a5e70','center')}
 if(toast&&mode==='play'){let a=Math.min(1,toast.life*2,(toast.max-toast.life)*3);ctx.save();ctx.globalAlpha=a;let width=420;rect((W-width)/2,119,width,59,'#211b30d9');text(toast.title,W/2,142,17,'#ffdc9d','center');text(toast.sub,W/2,164,11,'#e0c8bb','center');ctx.restore()}}
-function render(){ctx.save();ctx.clearRect(0,0,W,H);if(shake>0)ctx.translate(Math.round(rand(-shake,shake)),Math.round(rand(-shake*.4,shake*.4)));background();drawWorld();for(let e of enemies)drawEnemy(e);drawBoss();for(let s of shots){let x=s.x-cam;if(x<-30||x>W+30)continue;ctx.fillStyle=s.friendly?'#ffca74':'#f1a2a2';ctx.beginPath();ctx.arc(x,s.y,s.r,0,TAU);ctx.fill();ctx.fillStyle=s.friendly?'#fff0bb':'#fff0d4';ctx.beginPath();ctx.arc(x+2,s.y-2,s.r*.45,0,TAU);ctx.fill();if(s.kind==='wave')rect(x-15,s.y,30,8,'#ef9c89')}drawPlayer();for(let p of particles)rect(p.x-cam,p.y,p.size,p.size,p.color);for(let t of texts){ctx.globalAlpha=Math.min(1,t.life*3);text(t.text,t.x-cam,t.y,14,t.color,'center')}ctx.globalAlpha=1;ctx.restore();hud();if(mode==='win')sprite('reunion-5',W/2+300,G+1,170)}
+function render(){syncStageMode();ctx.save();ctx.clearRect(0,0,W,H);if(shake>0)ctx.translate(Math.round(rand(-shake,shake)),Math.round(rand(-shake*.4,shake*.4)));background();drawWorld();for(let e of enemies)drawEnemy(e);drawBoss();for(let s of shots){let x=s.x-cam;if(x<-30||x>W+30)continue;ctx.fillStyle=s.friendly?'#ffca74':'#f1a2a2';ctx.beginPath();ctx.arc(x,s.y,s.r,0,TAU);ctx.fill();ctx.fillStyle=s.friendly?'#fff0bb':'#fff0d4';ctx.beginPath();ctx.arc(x+2,s.y-2,s.r*.45,0,TAU);ctx.fill();if(s.kind==='wave')rect(x-15,s.y,30,8,'#ef9c89')}drawPlayer();drawEndingActors();for(let p of particles)rect(p.x-cam,p.y,p.size,p.size,p.color);for(let t of texts){ctx.globalAlpha=Math.min(1,t.life*3);text(t.text,t.x-cam,t.y,14,t.color,'center')}ctx.globalAlpha=1;ctx.restore();hud();drawCompletion()}
 const keymap={ArrowLeft:'left',KeyA:'left',ArrowRight:'right',KeyD:'right',Space:'jump',KeyW:'jump',ArrowUp:'jump',KeyJ:'attack',KeyK:'dash',ShiftLeft:'dash',ShiftRight:'dash',KeyL:'skill',KeyQ:'form',KeyE:'interact',Digit1:'form0',Digit2:'form1',Digit3:'form2',Digit4:'form3'};
-const held=new Map();
+
+const stage=$('stage');let displayedMode='';
+function syncStageMode(){
+ if(displayedMode===mode)return;displayedMode=mode;
+ const active=mode==='play'||mode==='ending';
+ stage.classList.toggle('is-playing',mode==='play');stage.classList.toggle('is-ending',!!ending);
+ document.documentElement?.classList.toggle('game-active',active);
+}
+// Pointer events still own gameplay. These listeners suppress Safari's native
+// zoom/loupe/callout gestures only inside the active game surface.
+function protectGameTouch(e){
+ if(mode!=='play'&&mode!=='ending')return;
+ const control=e.target.closest?.('button:not([data-key]), input, a, label');
+ if(control)return;
+ if(e.cancelable)e.preventDefault();
+}
+for(const type of ['touchstart','touchmove','touchend'])stage.addEventListener(type,protectGameTouch,{passive:false});
+for(const type of ['gesturestart','gesturechange','gestureend'])stage.addEventListener(type,e=>{if((mode==='play'||mode==='ending')&&e.cancelable)e.preventDefault()},{passive:false});
+for(const type of ['contextmenu','selectstart','dragstart'])stage.addEventListener(type,e=>{if(e.cancelable)e.preventDefault()});
+stage.addEventListener('pointerdown',e=>{if(e.pointerType!=='mouse'&&(mode==='play'||mode==='ending')){const selection=window.getSelection?.();if(selection?.anchorNode&&stage.contains(selection.anchorNode))selection.removeAllRanges()}},{passive:true});
+window.addEventListener('orientationchange',()=>clearInput());
+$('endingRestart').onclick=()=>start(false);
+$('endingJourney').onclick=showJourney;
+$('endingReplay').onclick=()=>{resetEnding();cam=LENGTH-W;player.x=cam+265;player.y=G;beginEnding();ending.phase='enter';ending.t=0;ending.startCam=cam;ending.heroStart=player.x;mixer.setScene('reunion',true)};
+
+const held=new Map(),touchPointers=new Map();
 function key(k,down,source='keyboard'){let set=held.get(source);if(!set){set=new Set();held.set(source,set)}if(down)set.add(k);else set.delete(k);if(!set.size)held.delete(source);let next=[...held.values()].some(s=>s.has(k));if(next&&!keys[k])pressed[k]=true;keys[k]=next;}
-function clearInput(){held.clear();keys={};pressed={};for(const el of document.querySelectorAll('[data-key]'))el.classList.remove('held')}
+function clearInput(){held.clear();touchPointers.forEach(p=>p.clear());keys={};pressed={};for(const el of document.querySelectorAll('[data-key]'))el.classList.remove('held')}
 window.addEventListener('keydown',e=>{if(e.code==='Escape'||e.code==='KeyP'){if(!e.repeat)pause();e.preventDefault();return}let k=keymap[e.code];if(k&&mode==='play'){e.preventDefault();key(k,true,e.code)}});
 window.addEventListener('keyup',e=>{let k=keymap[e.code];if(k)key(k,false,e.code)});
-window.addEventListener('blur',()=>{clearInput();if(mode==='play')pause()});
-document.addEventListener('visibilitychange',()=>{if(document.hidden){clearInput();if(mode==='play')pause();mixer.ctx?.suspend().catch(()=>{})}else mixer.ctx?.resume().catch(()=>{})});
+window.addEventListener('blur',()=>{clearInput();if(mode==='play'||mode==='ending')pause()});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){clearInput();if(mode==='play'||mode==='ending')pause();mixer.ctx?.suspend().catch(()=>{})}else mixer.ctx?.resume().catch(()=>{})});
 cv.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'&&mode==='play'){key('attack',true,'mouse');cv.focus()}});
 window.addEventListener('pointerup',e=>{if(e.pointerType==='mouse')key('attack',false,'mouse')});
-for(let el of document.querySelectorAll('[data-key]')){const pointers=new Set(),k=el.dataset.key;el.addEventListener('contextmenu',e=>e.preventDefault());el.addEventListener('pointerdown',e=>{e.preventDefault();if(mode!=='play')return;pointers.add(e.pointerId);el.setPointerCapture(e.pointerId);el.classList.add('held');key(k,true,'touch:'+e.pointerId);mixer.ctx?.resume().catch(()=>{})});for(let ev of ['pointerup','pointercancel','lostpointercapture'])el.addEventListener(ev,e=>{e.preventDefault();pointers.delete(e.pointerId);key(k,false,'touch:'+e.pointerId);if(!pointers.size)el.classList.remove('held')})}
+for(let el of document.querySelectorAll('[data-key]')){const pointers=new Set(),k=el.dataset.key;touchPointers.set(el,pointers);el.addEventListener('contextmenu',e=>e.preventDefault());el.addEventListener('pointerdown',e=>{e.preventDefault();if(mode!=='play')return;pointers.add(e.pointerId);el.setPointerCapture(e.pointerId);el.classList.add('held');key(k,true,'touch:'+e.pointerId);mixer.ctx?.resume().catch(()=>{})});for(let ev of ['pointerup','pointercancel','lostpointercapture'])el.addEventListener(ev,e=>{e.preventDefault();pointers.delete(e.pointerId);key(k,false,'touch:'+e.pointerId);if(!pointers.size)el.classList.remove('held')})}
 function gamepad(){let p=navigator.getGamepads?.()?.[0];if(!p){for(const k of held.get('gamepad')||[])key(k,false,'gamepad');return}key('left',p.axes[0]<-.3,'gamepad');key('right',p.axes[0]>.3,'gamepad');for(let [i,k] of [[0,'jump'],[2,'attack'],[1,'dash'],[3,'skill'],[4,'form'],[5,'interact']])key(k,!!p.buttons[i]?.pressed,'gamepad');if(p.buttons[9]?.pressed&&!gamepadOld[9])pause();gamepadOld[9]=!!p.buttons[9]?.pressed}
 $('start').onclick=()=>{if(loaded)start(false)};$('continue').onclick=()=>{if(loaded)start(true)};$('pause').onclick=pause;$('sound').onclick=()=>{let panel=$('audioPanel');panel.hidden=!panel.hidden;$('sound').setAttribute('aria-expanded',String(!panel.hidden));syncAudioUI()};$('closeAudio').onclick=()=>{$('audioPanel').hidden=true;$('sound').setAttribute('aria-expanded','false')};$('muteAudio').onclick=setMute;for(const k of ['music','sfx'])$(k+'Volume').oninput=e=>{mixer.set(k,Number(e.target.value)/100);syncAudioUI()};$('sfxVolume').onchange=()=>{mixer.start();sound('coin',.08)};$('touchPause').onclick=pause;syncAudioUI();$('help').onclick=help;$('dialogClose').onclick=()=>dialogAction?.();$('full').onclick=()=>{let stage=$('stage');if(!document.fullscreenElement)stage.requestFullscreen?.().catch(()=>{});else document.exitFullscreen?.()};
-let files=['bakery','boss','guard','slime','flyer','bread-item','ember-item'];for(let i=0;i<12;i++)files.push('dog-'+i);for(let i=0;i<8;i++)files.push('run-'+i);for(let i=0;i<6;i++)files.push('reunion-'+i);
+let files=['girl-walk-v1','bakery','boss','guard','slime','flyer','bread-item','ember-item'];for(let i=0;i<12;i++)files.push('dog-'+i);for(let i=0;i<8;i++)files.push('run-'+i);for(let i=0;i<6;i++)files.push('reunion-'+i);
 Promise.all(files.map(name=>new Promise(resolve=>{let im=new Image();im.onload=()=>{imgs[name]=im;resolve()};im.onerror=()=>resolve();im.src='assets/'+name+'.png'}))).then(()=>{loaded=true;$('loading').textContent='準備好了 · 戴上項圈，出發。';makeLevel();player={x:120,y:G,form:0,dir:1,on:true,vx:0,hp:120,max:120,energy:100,medals:0,coins:0,unlocked:[true,false,false,false]};render()});
 let last=0;function loop(now){let dt=Math.min(.033,(now-last)/1000||.016);last=now;gamepad();mixer.update(mode);if(loaded){update(dt);render()}requestAnimationFrame(loop)}requestAnimationFrame(loop);
-window.__corgi={start,update,render,attack,skill,changeForm,interact,spawnBoss,hurtBoss,hurtEnemy,respawn,forms,key,clearInput,mixer,get state(){return {player,boss,gates,walls,lamps,enemies,pickups,platforms,crates,vents,mode,cam,stats,levelTime,bossTime}},setKeys(k){keys=k;pressed={}},press(k){pressed[k]=true;keys[k]=true},release(k){keys[k]=false},setMode(m){mode=m},setCamera(x){cam=x},setClock(t){clock=t}};
+window.__corgi={start,pause,update,render,attack,skill,changeForm,interact,spawnBoss,hurtBoss,hurtEnemy,respawn,forms,key,clearInput,mixer,get state(){return {player,boss,gates,walls,lamps,enemies,pickups,platforms,crates,vents,ending,loaded,mode,cam,stats,levelTime,bossTime}},setKeys(k){keys=k;pressed={}},press(k){pressed[k]=true;keys[k]=true},release(k){keys[k]=false},setMode(m){mode=m},setCamera(x){cam=x},setClock(t){clock=t}};
 })();

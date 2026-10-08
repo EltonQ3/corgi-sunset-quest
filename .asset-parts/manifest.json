@@ -40,5 +40,23 @@
       ".asset-parts/bakery.png.part004",
       ".asset-parts/bakery.png.part005"
     ]
+  },
+  {
+    "target": "dist/assets/girl-walk-v1.png",
+    "sha256": "a3ec702a41f7d8052fa1a4b75d41198484aedcc9cc20d0c50ca0087fe8f35f16",
+    "parts": [
+      ".asset-parts/girl-walk-v1.png.part000",
+      ".asset-parts/girl-walk-v1.png.part001",
+      ".asset-parts/girl-walk-v1.png.part002"
+    ]
+  },
+  {
+    "target": "dist/assets/ending-reunion-v1.mp4",
+    "sha256": "8d8d2a43049e707bf2b5d244685e194a1d59fa2cd79e040aaa6cccac4a3ce56c",
+    "parts": [
+      ".asset-parts/ending-reunion-v1.mp4.part000",
+      ".asset-parts/ending-reunion-v1.mp4.part001",
+      ".asset-parts/ending-reunion-v1.mp4.part002"
+    ]
   }
 ]

@@ -2,3 +2,7 @@ Original first-film assets: bakery.png; corgi-sheet.png (12 poses); run-sheet.pn
 
 Music v3: user-provided Corgi's Search with hope (street), Corgi's Battle (boss), Corgi's Search (reunion). Original uploads untouched. Level-matched gain, 0.65s loop crossfade for street/boss; 31s reunion excerpt with 3s fade.
 Costumes drawn as runtime accessories over the original corgi animation frames.
+
+
+v0.3 ending: ending-reunion-v1.mp4 is the first-version.mp4 final scene, 8.45–15.0 seconds, downscaled to the original 384x216 logical pixel resolution, H.264 30 FPS, silent. Music remains the user's reunion track; new procedural foley follows the film clock.
+girl-walk-v1.png: new four-frame walking strip made with the built-in image_gen tool, transparent background, using reunion-0.png as the character/style reference. Existing embrace frames remain original. Full generation brief and integration notes: docs/ASSETS-v0.3.md.
