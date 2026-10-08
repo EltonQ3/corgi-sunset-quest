@@ -23,5 +23,17 @@
 .ending-actions button{background:#302438ed;border:1px solid #b28864;border-radius:2px;font-size:12px;padding:9px 15px;box-shadow:0 3px 0 #1b1422}
 .ending-actions .primary{background:#e8b477;color:#302432;border-color:#f8d6a5}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-@media(pointer:coarse) and (orientation:landscape){header,.eyebrow,.heading,.under,.field-guide,footer{display:none}main{padding:0;max-width:100vw}.stage{width:100%;aspect-ratio:auto;border:0;border-radius:0}.stage canvas{object-fit:contain}html.game-active,html.game-active body{height:100%;overflow:hidden;overscroll-behavior:none}.stage{height:100svh}.stage:fullscreen{height:100dvh}.ending-actions{bottom:max(10px,env(safe-area-inset-bottom))}.ending-actions button{padding:8px 12px}}
+@media(pointer:coarse) and (orientation:landscape){header,.eyebrow,.heading,.under,.field-guide,footer{display:none}main{padding:0;max-width:100vw}.stage{width:100%;aspect-ratio:auto;border:0;border-radius:0}.stage canvas{object-fit:contain}.stage{height:100dvh}.stage:fullscreen{height:100dvh}.ending-actions{bottom:max(10px,env(safe-area-inset-bottom))}.ending-actions button{padding:8px 12px}}
 @media(pointer:coarse) and (orientation:portrait){.reunion-film{height:auto;aspect-ratio:16/9;bottom:auto}#touch{left:auto;right:auto;bottom:auto}.ending-actions{bottom:58px;gap:7px}.ending-actions button{padding:9px 10px;font-size:11px}}
+
+/* v0.3.1: lock the surface to the visible viewport, never to a scrolled page. */
+@media(pointer:coarse) and (orientation:landscape){
+ html,body{overflow:hidden;overscroll-behavior:none}
+ .stage{position:fixed;top:0;left:0;width:100vw;height:100dvh;margin:0;box-shadow:none;z-index:5}
+ html.game-landscape .stage{top:var(--game-top,0px);left:var(--game-left,0px);width:var(--game-width,100vw);height:var(--game-height,100dvh)}
+ .stage canvas{width:100%;height:100%;object-fit:contain;object-position:center}
+ .overlay{padding:max(8px,env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left));overflow:auto;overscroll-behavior:contain;touch-action:pan-y}
+ .menu-card,.dialog-card{max-height:100%;overflow:auto;overscroll-behavior:contain;flex-shrink:0}
+ .menu-card h2{font-size:clamp(25px,8dvh,48px);margin:8px 0}
+ .menu-card p{margin:6px 0}.pills{margin:8px 0}.assist{margin-top:8px}#loading{margin-top:6px}
+}
